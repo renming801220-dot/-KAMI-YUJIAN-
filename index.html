@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<title>AI 俄罗斯方块</title>
+<style>
+  body{margin:0;background:#111;display:flex;justify-content:center;align-items:center;height:100vh}
+  canvas{background:#000;border:2px solid #555}
+</style>
+</head>
+<body>
+<canvas id="cvs" width="300" height="600"></canvas>
+<script>
+// --- 1. 常量 ---
+const COL=10, ROW=20, SQ=30;
+const CV=document.getElementById('cvs'), CX=CV.getContext('2d');
+const PIECES=[
+  [[[1,1,1,1]]],                       // I
+  [[[1,1],[1,1]]],                     // O
+  [[[0,1,0],[1,1,1]],[[1,0],[1,1],[1,0]],[[1,1,1],[0,1,0]],[[0,1],[1,1],[0,1]]], // T
+  [[[1,1,0],[0,1,1]],[[0,1],[1,1],[1,0]]], // Z
+  [[[0,1,1],[1,1,0]],[[1,0],[1,1],[0,1]]], // S
+  [[[1,0,0],[1,1,1]],[[1,1],[1,0],[1,0]],[[1,1,1],[0,0,1]],[[0,1],[0,1],[1,1]]], // L
+  [[[0,0,1],[1,1,1]],[[1,0],[1,0],[1,1]],[[1,1,1],[1,0,0]],[[1,1],[0,1],[0,1]]]  // J
+];
+const COLORS=['#00f','#ff0','#a0f','#f00','#0f0','#fa0','#00f'];
+
+// --- 2. 工具函数 ---
+function drawBlock(x,y,color){
+  CX.fillStyle=color;
+  CX.fillRect(x*SQ,y*SQ,SQ,SQ);
+  CX.strokeStyle='#000';
+  CX.strokeRect(x*SQ,y*SQ,SQ,SQ);
+}
+function newPiece(){ return {shape:PIECES[Math.random()*7|0],x:3,y:0,rot:0,color:COLORS[Math.random()*7|0]}; }
+
+// --- 3. 棋盘 ---
+let board=Array.from({length:ROW},()=>Array(COL).fill(0));
+function valid(p, dx=0, dy=0, dr=0){
+  let r=(p.rot+dr)%p.shape.length, s=p.shape[r];
+  for(let y=0;y<s.length;y++){
+    for(let x=0;x<s[y].length;x++){
+      if(!s[y][x]) continue;
+      let nx=p.x+x+dx, ny=p.y+y+dy;
+      if(nx<0||nx>=COL||ny>=ROW||(ny>=0&&board[ny][nx])) return false;
+    }
+  }
+  return true;
+}
+function lock(p){
+  let r=p.shape[p.rot], color=p.color;
+  for(let y=0;y<r.length;y++){
+    for(let x=0;x<r[y].length;x++){
+      if(r[y][x]) board[p.y+y][p.x+x]=color;
+    }
+  }
+}
+function clearLines(){
+  let lines=0;
+  for(let y=ROW-1;y>=0;y--){
+    if(board[y].every(v=>v)){
+      board.splice(y,1);
+      board.unshift(Array(COL).fill(0));
+      lines++; y++;
+    }
+  }
+  if(lines) score+=lines*100, document.title='得分:'+score;
+}
+
+// --- 4. 主循环 ---
+let score=0, dropCounter=0, lastTime=0, piece=newPiece();
+function draw(){
+  CX.clearRect(0,0,CV.width,CV.height);
+  // 画棋盘
+  for(let y=0;y<ROW;y++) for(let x=0;x<COL;x++) if(board[y][x]) drawBlock(x,y,board[y][x]);
+  // 画当前方块
+  let r=piece.shape[piece.rot];
+  for(let y=0;y<r.length;y++) for(let x=0;x<r[y].length;x++) if(r[y][x]) drawBlock(piece.x+x,piece.y+y,piece.color);
+}
+function drop(){
+  if(valid(piece,0,1)) piece.y++;
+  else{
+    lock(piece); clearLines(); piece=newPiece();
+    if(!valid(piece)){ alert('游戏结束 得分:'+score); board=Array.from({length:ROW},()=>Array(COL).fill(0)); score=0; }
+  }
+  dropCounter=0;
+}
+function update(time=0){
+  let dt=time-lastTime; lastTime=time; dropCounter+=dt;
+  if(dropCounter>500) drop();
+  draw(); requestAnimationFrame(update);
+}
+
+// --- 5. 键盘 ---
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft'&&valid(piece,-1,0)) piece.x--;
+  if(e.key==='ArrowRight'&&valid(piece,1,0)) piece.x++;
+  if(e.key==='ArrowDown'&&valid(piece,0,1)){ piece.y++; score++; document.title='得分:'+score; }
+  if(e.key==='ArrowUp'&&valid(piece,0,0,1)) piece.rot=(piece.rot+1)%piece.shape.length;
+  if(e.key===' ') while(valid(piece,0,1)){ piece.y++; score+=2; }
+});
+
+update();
+</script>
+</body>
+</html>
